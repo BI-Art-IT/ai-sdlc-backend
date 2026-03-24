@@ -11,6 +11,7 @@ Migrations are managed with [golang-migrate](https://github.com/golang-migrate/m
 1. [Getting Started](#getting-started)
    - [Prerequisites](#prerequisites)
    - [Configuration](#configuration)
+   - [Changing the Database Connection](#changing-the-database-connection)
    - [Running Migrations](#running-migrations)
    - [Starting the Server](#starting-the-server)
 2. [Project Structure](#project-structure)
@@ -55,6 +56,42 @@ SERVER_PORT=8080
 > The application loads `.env` automatically at startup via [godotenv](https://github.com/joho/godotenv).
 > You can also export these variables directly into your shell instead of using a file.
 
+### Changing the Database Connection
+
+The application connects to PostgreSQL using a single `DATABASE_URL` connection string. To point it at a different host, database, user, or password, edit the `DATABASE_URL` value in your `.env` file.
+
+**Connection string anatomy:**
+
+```
+postgres://<username>:<password>@<host>:<port>/<database>?sslmode=<mode>
+```
+
+| Segment | Example value | Description |
+|---|---|---|
+| `<username>` | `postgres` | PostgreSQL user |
+| `<password>` | `s3cr3t` | Password for the user |
+| `<host>` | `localhost` or `db.example.com` | Database server hostname or IP |
+| `<port>` | `5432` | PostgreSQL port (default: `5432`) |
+| `<database>` | `airlines` | Database name |
+| `sslmode` | `disable` / `require` / `verify-full` | TLS mode |
+
+**Examples:**
+
+```env
+# Local development (no TLS)
+DATABASE_URL=postgres://postgres:password@localhost:5432/airlines?sslmode=disable
+
+# Specific user and database
+DATABASE_URL=postgres://airlines_user:s3cr3t@localhost:5432/airlines_db?sslmode=disable
+
+# Remote / cloud database with TLS required
+DATABASE_URL=postgres://app_user:s3cr3t@db.example.com:5432/airlines?sslmode=require
+```
+
+> **Tip:** Never hard-code credentials in source files. Always use the `.env` file
+> (excluded from source control via `.gitignore`) or inject the variable through
+> your deployment environment.
+
 ### Running Migrations
 
 Migrations can be triggered in two ways:
@@ -89,15 +126,28 @@ decoupled from the application process.
 
 ### Starting the Server
 
+**Quick start (development):**
+
 ```bash
+# 1. Configure environment
+cp .env.example .env
+#    Edit .env to set your DATABASE_URL
+
+# 2. Apply database migrations
+go run ./cmd/migrate up
+
+# 3. Start the server (migrations also run automatically on startup)
 go run ./cmd/server
 ```
 
-Or build first:
+**Build binaries and run (production-style):**
 
 ```bash
-go build -o bin/server ./cmd/server
-./bin/server
+go build -o bin/migrate ./cmd/migrate
+go build -o bin/server  ./cmd/server
+
+./bin/migrate up   # apply migrations once
+./bin/server       # start the HTTP server
 ```
 
 The server exposes the following endpoint:
