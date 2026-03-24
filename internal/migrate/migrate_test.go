@@ -25,3 +25,17 @@ func TestUp_NoChangeIsNotAnError(t *testing.T) {
 		t.Fatal("migrate.ErrNoChange should satisfy errors.Is with itself")
 	}
 }
+
+func TestDown_AllMigrations_InvalidSourceReturnsError(t *testing.T) {
+	err := appmigrate.Down("pgx5://localhost/nonexistent", "/nonexistent/path", 0)
+	if err == nil {
+		t.Fatal("expected error for invalid migration source, got nil")
+	}
+}
+
+func TestDown_NSteps_InvalidSourceReturnsError(t *testing.T) {
+	err := appmigrate.Down("pgx5://localhost/nonexistent", "/nonexistent/path", 1)
+	if err == nil {
+		t.Fatal("expected error for invalid migration source, got nil")
+	}
+}

@@ -1,6 +1,6 @@
-# AirLines Backend – Database Design
+# AirLines Backend
 
-This document describes the PostgreSQL database schema used by the **Flight Search** feature of the AirLines platform.
+Go backend for the AirLines platform, providing a REST API backed by PostgreSQL.
 
 Migrations are managed with [golang-migrate](https://github.com/golang-migrate/migrate) using the `pgx/v5` driver. Each table lives in its own numbered migration file under [`migrations/`](./migrations/).
 
@@ -8,21 +8,130 @@ Migrations are managed with [golang-migrate](https://github.com/golang-migrate/m
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Entity Relationship Diagram](#entity-relationship-diagram)
-3. [Tables](#tables)
-   - [airports](#airports)
-   - [airlines](#airlines)
-   - [fare_classes](#fare_classes)
-   - [flights](#flights)
-   - [fares](#fares)
-   - [search_logs](#search_logs)
-4. [Migration Files](#migration-files)
-5. [Running Migrations](#running-migrations)
+1. [Getting Started](#getting-started)
+   - [Prerequisites](#prerequisites)
+   - [Configuration](#configuration)
+   - [Running Migrations](#running-migrations)
+   - [Starting the Server](#starting-the-server)
+2. [Project Structure](#project-structure)
+3. [Database Design](#database-design)
+   - [Overview](#overview)
+   - [Entity Relationship Diagram](#entity-relationship-diagram)
+   - [Tables](#tables)
+   - [Migration Files](#migration-files)
 
 ---
 
-## Overview
+## Getting Started
+
+### Prerequisites
+
+| Requirement | Version |
+|---|---|
+| [Go](https://go.dev/dl/) | ≥ 1.25 |
+| [PostgreSQL](https://www.postgresql.org/download/) | ≥ 14 |
+
+### Configuration
+
+Copy the example environment file and fill in your database credentials:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```env
+# PostgreSQL connection URL (required)
+DATABASE_URL=postgres://postgres:password@localhost:5432/airlines?sslmode=disable
+
+# Path to migration files, relative to the working directory (optional, default: "migrations")
+MIGRATIONS_PATH=migrations
+
+# Port the HTTP server listens on (optional, default: "8080")
+SERVER_PORT=8080
+```
+
+> The application loads `.env` automatically at startup via [godotenv](https://github.com/joho/godotenv).
+> You can also export these variables directly into your shell instead of using a file.
+
+### Running Migrations
+
+Migrations can be triggered in two ways:
+
+#### Option 1 — Standalone `migrate` command (recommended for CI/CD and manual runs)
+
+```bash
+# Apply all pending migrations
+go run ./cmd/migrate up
+
+# Roll back the last migration
+go run ./cmd/migrate down 1
+
+# Roll back all migrations (full teardown)
+go run ./cmd/migrate down
+```
+
+Build the binary once and reuse it:
+
+```bash
+go build -o bin/migrate ./cmd/migrate
+
+./bin/migrate up
+./bin/migrate down 2
+```
+
+#### Option 2 — Automatic on server startup
+
+Migrations also run automatically every time the server starts (see `cmd/server/main.go`).
+This is convenient for local development; for production, prefer Option 1 so migrations are
+decoupled from the application process.
+
+### Starting the Server
+
+```bash
+go run ./cmd/server
+```
+
+Or build first:
+
+```bash
+go build -o bin/server ./cmd/server
+./bin/server
+```
+
+The server exposes the following endpoint:
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Returns `{"status":"ok"}` when the server is running |
+
+---
+
+## Project Structure
+
+```
+.
+├── cmd/
+│   ├── migrate/        # Standalone migration CLI (go run ./cmd/migrate up|down)
+│   │   └── main.go
+│   └── server/         # HTTP server entrypoint
+│       └── main.go
+├── internal/
+│   ├── config/         # Environment-based configuration
+│   ├── database/       # pgx/v5 connection pool
+│   └── migrate/        # golang-migrate Up/Down wrappers
+├── migrations/         # SQL migration files (one table per file)
+├── .env.example        # Environment variable template
+├── go.mod
+└── go.sum
+```
+
+---
+
+## Database Design
+
+### Overview
 
 The schema is split into two categories:
 
@@ -35,7 +144,7 @@ All primary keys are `UUID` generated with `gen_random_uuid()` (provided by the 
 
 ---
 
-## Entity Relationship Diagram
+### Entity Relationship Diagram
 
 ```
 airports ──────────────────────────────────────────────────────┐
@@ -58,7 +167,7 @@ search_logs  (no FK dependencies — standalone telemetry table)
 
 ---
 
-## Tables
+### Tables
 
 ### airports
 
@@ -263,7 +372,7 @@ Stores anonymised flight search telemetry for analytics and performance monitori
 
 ---
 
-## Migration Files
+### Migration Files
 
 | # | File | Direction | Description |
 |---|---|---|---|
@@ -282,28 +391,4 @@ Stores anonymised flight search telemetry for analytics and performance monitori
 
 ---
 
-## Running Migrations
-
-Migrations run automatically at server startup. Set the following environment variables (or create a `.env` file):
-
-```env
-DATABASE_URL=postgres://user:password@localhost:5432/airlines?sslmode=disable
-MIGRATIONS_PATH=migrations   # optional, defaults to "migrations"
-SERVER_PORT=8080              # optional, defaults to "8080"
-```
-
-Then start the server:
-
-```bash
-go run ./cmd/server
-```
-
-To apply or roll back migrations manually using the `migrate` CLI:
-
-```bash
-# Apply all pending migrations
-migrate -source file://migrations -database "$DATABASE_URL" up
-
-# Roll back the last migration
-migrate -source file://migrations -database "$DATABASE_URL" down 1
-```
+> **Running migrations and starting the application?** See [Getting Started](#getting-started) above.
